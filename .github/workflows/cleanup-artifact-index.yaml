@@ -1,0 +1,59 @@
+name: Maintain artifact index
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+    inputs:
+      keep:
+        description: Number of latest artifact-index snapshots to retain
+        type: choice
+        options: ['5', '3']
+        default: '5'
+      dry_run:
+        description: Inspect only, without deleting versions
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: artifact-index-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    if: github.repository == 'hiconic-os/maven-repo-dev'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Retain latest index snapshots
+        shell: bash
+        env:
+          # Existing publishing credential; an optional dedicated token takes precedence.
+          GITHUB_TOKEN: ${{ secrets.ARTIFACT_INDEX_CLEANUP_TOKEN || secrets.DEVROCK_PIPELINE_UPLOAD_PASSWORD }}
+          INDEX_OWNER: ${{ github.repository_owner }}
+          INDEX_REPOSITORY: ${{ github.repository }}
+          KEEP: ${{ inputs.keep || '5' }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        run: |
+          args=(--org="$INDEX_OWNER" --repo="$INDEX_REPOSITORY" --keep="$KEEP")
+          if [[ "$DRY_RUN" == "true" ]]; then args+=(--dry); fi
+          node .github/scripts/delete-old-versions.cjs "${args[@]}" 2>&1 | tee cleanup.log
+      - name: Write run summary
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f cleanup.log ]]; then
+            echo '### Artifact-index retention' >> "$GITHUB_STEP_SUMMARY"
+            echo '~~~text' >> "$GITHUB_STEP_SUMMARY"
+            cat cleanup.log >> "$GITHUB_STEP_SUMMARY"
+            echo '~~~' >> "$GITHUB_STEP_SUMMARY"
+          fi
