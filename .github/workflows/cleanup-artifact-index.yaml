@@ -17,6 +17,7 @@ on:
 
 permissions:
   contents: read
+  packages: write
 
 concurrency:
   group: artifact-index-cleanup
@@ -37,8 +38,8 @@ jobs:
       - name: Retain latest index snapshots
         shell: bash
         env:
-          # Existing publishing credential; an optional dedicated token takes precedence.
-          GITHUB_TOKEN: ${{ secrets.ARTIFACT_INDEX_CLEANUP_TOKEN || secrets.DEVROCK_PIPELINE_UPLOAD_PASSWORD }}
+          # Prefer existing publishing credentials; otherwise use the ephemeral repository job token.
+          GITHUB_TOKEN: ${{ secrets.ARTIFACT_INDEX_CLEANUP_TOKEN || secrets.DEVROCK_PIPELINE_UPLOAD_PASSWORD || github.token }}
           INDEX_OWNER: ${{ github.repository_owner }}
           INDEX_REPOSITORY: ${{ github.repository }}
           KEEP: ${{ inputs.keep || '5' }}

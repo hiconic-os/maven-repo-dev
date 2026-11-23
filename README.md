@@ -10,7 +10,8 @@ The backing repository is checked before any deletion, and an incomplete invento
 or failed delete fails the job. Concurrent new versions remain untouched.
 
 Authentication uses the existing `DEVROCK_PIPELINE_UPLOAD_PASSWORD` secret, or
-`ARTIFACT_INDEX_CLEANUP_TOKEN` when supplied. The PAT needs package read/delete
+`ARTIFACT_INDEX_CLEANUP_TOKEN` when supplied. If neither exists, the ephemeral
+repository job token is used with package-write permission. A PAT needs package read/delete
 scopes and package administration rights. No token is passed in command arguments.
 
 The dependency-free Node.js script is bundled so no other repository, SDK or npm
